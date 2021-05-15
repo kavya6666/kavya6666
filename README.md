@@ -1,7 +1,7 @@
 - 👋 Hi, I’m @kavya6666
 - 👀 I’m interested in learning new things daily
 - 🌱 I’m currently learning Cloud Computing
-- 💞️ I’m looking to collaborate on Instagram
+- 💞️ I’m looking to collaborate on Instagram: Kavya Royal(@imkaasu)
 - 📫 How to reach me LinkedIn: kavya Sudha(http://dkavya6portfolio.ml/)
 
 -:) pronouns: She/Her
