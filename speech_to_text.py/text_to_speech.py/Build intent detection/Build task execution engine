@@ -1,1 +1,24 @@
 
+{
+  "open_google": ["open google", "launch google", "go to google"],
+  "open_youtube": ["open youtube", "launch youtube", "go to youtube"],
+  "weather": ["what is the weather", "tell me weather", "today weather"],
+  "joke": ["tell me a joke", "make me laugh"],
+  "search": ["search for", "find"],
+  "exit": ["exit", "stop", "quit"]
+}
+
+import json
+
+with open("data/intents.json", "r") as f:
+    INTENTS = json.load(f)
+
+def predict_intent(command: str) -> str:
+    command = command.lower()
+
+    for intent, phrases in INTENTS.items():
+        for phrase in phrases:
+            if phrase in command:
+                return intent
+
+    return "unknown"
