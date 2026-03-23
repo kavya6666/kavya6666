@@ -1,0 +1,144 @@
+"This code is a simple face authentication system using Python.
+
+It first loads an authorized user’s face image (authorized_user.jpg). Then it starts the webcam and captures live video. Using the face_recognition library, it detects faces in real time and compares the detected face with the stored authorized face.
+
+If the face matches, it performs a basic liveness check by detecting eye blinking using facial landmarks. If the user blinks once and the face matches, it grants access by displaying “Access Granted”.
+
+If the face does not match or the blink is not detected, it keeps checking until a match occurs or until 30 seconds pass, after which it stops."
+
+
+import cv2
+import face_recognition
+import numpy as np
+import os
+import time
+
+KNOWN_IMAGE_PATH = "authorized_user.jpg"
+MATCH_THRESHOLD = 0.50
+BLINK_EAR_THRESHOLD = 0.20
+REQUIRED_BLINKS = 1
+
+
+def eye_aspect_ratio(eye_points):
+    def euclidean(p1, p2):
+        return np.linalg.norm(np.array(p1) - np.array(p2))
+
+    a = euclidean(eye_points[1], eye_points[5])
+    b = euclidean(eye_points[2], eye_points[4])
+    c = euclidean(eye_points[0], eye_points[3])
+
+    if c == 0:
+        return 0.0
+    return (a + b) / (2.0 * c)
+
+
+def load_authorized_face(image_path):
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(f"Authorized image not found: {image_path}")
+
+    image = face_recognition.load_image_file(image_path)
+    encodings = face_recognition.face_encodings(image)
+
+    if not encodings:
+        raise ValueError("No face found in the authorized user image.")
+
+    return encodings[0]
+
+
+def main():
+    print("Loading authorized face...")
+    known_encoding = load_authorized_face(KNOWN_IMAGE_PATH)
+
+    video = cv2.VideoCapture(0)
+    if not video.isOpened():
+        raise RuntimeError("Could not open webcam.")
+
+    blink_count = 0
+    eyes_closed = False
+    access_granted = False
+    start_time = time.time()
+    timeout_seconds = 30
+
+    print("Look at the camera and blink once to verify liveness.")
+
+    while True:
+        ret, frame = video.read()
+        if not ret:
+            print("Failed to read from webcam.")
+            break
+
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        face_locations = face_recognition.face_locations(rgb_frame)
+        face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+        face_landmarks_list = face_recognition.face_landmarks(rgb_frame, face_locations)
+
+        status_text = "No face detected"
+        status_color = (0, 0, 255)
+
+        if face_encodings:
+            face_encoding = face_encodings[0]
+            face_distance = face_recognition.face_distance([known_encoding], face_encoding)[0]
+            is_match = face_distance < MATCH_THRESHOLD
+
+            if is_match:
+                status_text = f"Face matched ({face_distance:.2f})"
+                status_color = (0, 255, 255)
+
+                if face_landmarks_list:
+                    landmarks = face_landmarks_list[0]
+
+                    if "left_eye" in landmarks and "right_eye" in landmarks:
+                        left_ear = eye_aspect_ratio(landmarks["left_eye"])
+                        right_ear = eye_aspect_ratio(landmarks["right_eye"])
+                        avg_ear = (left_ear + right_ear) / 2.0
+
+                        if avg_ear < BLINK_EAR_THRESHOLD and not eyes_closed:
+                            eyes_closed = True
+
+                        if avg_ear >= BLINK_EAR_THRESHOLD and eyes_closed:
+                            blink_count += 1
+                            eyes_closed = False
+
+                        if blink_count >= REQUIRED_BLINKS:
+                            access_granted = True
+                            status_text = "Access Granted"
+                            status_color = (0, 255, 0)
+                        else:
+                            status_text = f"Matched - Blink required ({blink_count}/{REQUIRED_BLINKS})"
+            else:
+                status_text = f"Face not recognized ({face_distance:.2f})"
+                status_color = (0, 0, 255)
+
+        for (top, right, bottom, left) in face_locations:
+            cv2.rectangle(frame, (left, top), (right, bottom), status_color, 2)
+
+        cv2.putText(
+            frame,
+            status_text,
+            (20, 40),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.9,
+            status_color,
+            2
+        )
+
+        cv2.imshow("Face Authentication Demo", frame)
+
+        if access_granted:
+            print("Access Granted")
+            break
+
+        if time.time() - start_time > timeout_seconds:
+            print("Authentication timed out.")
+            break
+
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
+
+    video.release()
+    cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()
